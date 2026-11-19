@@ -20,6 +20,8 @@ fail() {
 }
 
 deployed_ref=repo.cylo.net/filerun@sha256:622fc33a1eaf945577ffdf7a6bcbfd0f608a1ba7bfe20960099a78cbd8239d05
+# 2022.05.19-2 (php7.4 +cylo2), the release customers update from now.
+previous_release_ref=repo.cylo.net/filerun@sha256:a449683f93d615cea5533903f5e2c0671c877870299ed3c814743733ccd23d55
 
 case "$#" in
     1) image_ref=$1; release_ref=$1; mode=release ;;
@@ -61,6 +63,13 @@ unpatched_suffixes="+cylo1"
 suffix_is_unpatched=false
 for s in $unpatched_suffixes; do
     [ "$php_suffix" != "$s" ] || suffix_is_unpatched=true
+done
+# Suffixes of builds already pushed with a different patch set. A new patch
+# set must carry a new suffix, so a package version names one patch set.
+released_suffixes="+cylo2"
+for s in $released_suffixes; do
+    [ "$php_suffix" != "$s" ] || [ "$mode" = trial ] \
+        || fail "PHP74_LOCAL_SUFFIX $php_suffix was released with a different patch set; bump it"
 done
 
 run_in_image() {
@@ -158,6 +167,10 @@ done
 echo "== Fresh install, restart, and update from the deployed image"
 "$release_dir/recreate-test.sh" "$image_ref" "$deployed_ref" \
     || fail "install/update test failed"
+
+echo "== Update from the previous release"
+"$release_dir/recreate-test.sh" "$image_ref" "$previous_release_ref" \
+    || fail "update test from the previous release failed"
 
 echo "== Registry tag must not exist"
 "$release_dir/registry-absent.sh" "$release_ref" || fail "registry precondition failed"
